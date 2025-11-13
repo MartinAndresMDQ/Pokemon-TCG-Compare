@@ -2,6 +2,7 @@
   "name": "pokemon-tcg-comparator",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://martinandresmdq.github.io/pokemon-tcg-comparator",
   "dependencies": {
     "@tanstack/react-query": "^5.40.1",
     "axios": "^1.7.2",
