@@ -1,9 +1,11 @@
-// vite.config.js
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
+// https://vitejs.dev/config/
 export default defineConfig({
+  base: '/pokemon-tcg-comparator/', // Reemplaza con el nombre de tu repositorio
   plugins: [react()],
-  // La configuración del servidor y el proxy ya no son necesarios
-  // para cargar datos desde archivos JSON locales.
+  build: {
+    outDir: 'dist', // Directorio de salida para el build
+  },
 });
