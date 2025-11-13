@@ -1,4 +1,20 @@
-const API_BASE_URL = 'https://www.pokemon-zone.com/api';
+// La URL de nuestro propio backend que actúa como proxy.
+// En desarrollo, apunta a localhost. En producción (Vercel), usa una ruta relativa
+// para que el frontend llame a sus propias serverless functions.
+const PROXY_API_URL = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+
+/**
+ * Maneja la respuesta de la API de nuestro backend.
+ * @param {Response} response
+ * @returns {Promise<Object>}
+ */
+const handleApiResponse = async (response) => {
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(`Error en la solicitud: ${errorData.message || response.statusText}`);
+    }
+    return response.json();
+}
 
 /**
  * Realiza una búsqueda de cartas en la API.
@@ -6,14 +22,13 @@ const API_BASE_URL = 'https://www.pokemon-zone.com/api';
  * @returns {Promise<Object>} - Los resultados de la búsqueda.
  */
 export const searchCards = async (query) => {
-  // Por ahora, usamos un query de ejemplo. Esto debería ser dinámico.
-  const response = await fetch(`${API_BASE_URL}/cards/search/?q=${query}`);
-  
-  if (!response.ok) {
-    throw new Error(`Error al buscar cartas: ${response.statusText}`);
+  try {
+    const response = await fetch(`${PROXY_API_URL}/search-cards?q=${query}`);
+    return handleApiResponse(response);
+  } catch (error) {
+    console.error(`Error al buscar cartas con la query "${query}":`, error);
+    throw error;
   }
-  
-  return response.json();
 };
 
 /**
@@ -22,11 +37,11 @@ export const searchCards = async (query) => {
  * @returns {Promise<Object>} - Los datos del jugador.
  */
 export const getPlayer = async (playerId) => {
-  const response = await fetch(`${API_BASE_URL}/players/${playerId}/`);
-  
-  if (!response.ok) {
-    throw new Error(`Error al obtener datos del jugador: ${response.statusText}`);
+  try {
+    const response = await fetch(`${PROXY_API_URL}/players/${playerId}`);
+    return handleApiResponse(response);
+  } catch (error) {
+    console.error(`Error al obtener el jugador con ID "${playerId}":`, error);
+    throw error;
   }
-  
-  return response.json();
 };
