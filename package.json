@@ -5,7 +5,6 @@
   "homepage": "https://martinandresmdq.github.io/pokemon-tcg-comparator",
   "dependencies": {
     "@tanstack/react-query": "^5.40.1",
-    "axios": "^1.7.2",
     "react": "^19.0.0-experimental-c23de8f-20240529",
     "react-dom": "^19.0.0-experimental-c23de8f-20240529",
     "typescript": "^5.2.2",

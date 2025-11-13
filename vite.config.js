@@ -8,4 +8,15 @@ export default defineConfig({
   build: {
     outDir: 'dist', // Directorio de salida para el build
   },
+  server: {
+    proxy: {
+      // Redirige las peticiones de /api a la API de pokemon-zone
+      '/api': {
+        target: 'https://www.pokemon-zone.com',
+        changeOrigin: true, // Necesario para vhosts
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api'), // Mantiene /api en la ruta de destino
+      },
+    },
+  },
 });
