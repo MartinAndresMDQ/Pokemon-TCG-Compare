@@ -18,7 +18,8 @@ function App() {
   useEffect(() => {
     const getMasterCardList = async () => {
       try {
-        const response = await axios.get('/data/cards-search.json');
+        // CAMBIO 1: Apuntar a la API en vivo para la lista de cartas
+        const response = await axios.get('https://www.pokemon-zone.com/api/cards/search/');
         const apiData = response.data;
         const cardMap = {};
         apiData.data.results.forEach(card => {
@@ -40,7 +41,7 @@ function App() {
         setMasterCardList(cardMap);
       } catch (e) {
         console.error("Error cargando la lista de cartas:", e);
-        alert("Error: No se pudo cargar el archivo 'public/data/cards-search.json'. ¿Existe?");
+        alert("Error: No se pudo cargar la lista de cartas desde la API. Revisa la consola para más detalles.");
       }
     };
 
@@ -123,8 +124,9 @@ function App() {
 
     try {
       // 2. Cargar los datos de ambos jugadores desde sus archivos JSON
-      const player1Response = await axios.get(`/data/player-${player1Id}.json`);
-      const player2Response = await axios.get(`/data/player-${player2Id}.json`);
+      // CAMBIO 2: Apuntar a la API en vivo para los datos de los jugadores
+      const player1Response = await axios.get(`https://www.pokemon-zone.com/api/players/${player1Id}/`);
+      const player2Response = await axios.get(`https://www.pokemon-zone.com/api/players/${player2Id}/`);
 
       // 3. Procesar data de ambos jugadores
       const player1 = processPlayerData(player1Response.data);
@@ -165,7 +167,7 @@ function App() {
       setTradesToShow({ p1_gives: p1_can_give, p2_gives: p2_can_give, player1Name: player1.name, player2Name: player2.name });
     } catch (error) {
       console.error(error);
-      alert('Error al cargar o procesar los datos de los jugadores. Revisa que los archivos JSON existan en `public/data` y que los IDs sean correctos.');
+      alert('Error al cargar o procesar los datos de los jugadores desde la API. Revisa que los IDs sean correctos y que la API esté disponible.');
     }
     setLoading(false);
   };
