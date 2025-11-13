@@ -2,14 +2,9 @@
   "name": "pokemon-tcg-comparator",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://martinandresmdq.github.io/pokemon-tcg-comparator",
   "dependencies": {
-    "@sparticuz/chromium": "^123.0.1",
     "@tanstack/react-query": "^5.40.1",
-    "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "puppeteer-core": "^22.12.1",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.0.0-experimental-c23de8f-20240529",
     "react-dom": "^19.0.0-experimental-c23de8f-20240529",
     "typescript": "^5.2.2",
@@ -18,7 +13,6 @@
   "scripts": {
     "dev": "vite",
     "start": "vite",
-    "server": "node server.js",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "build": "vite build",
@@ -31,7 +25,6 @@
     "@vitejs/plugin-react": "^4.2.1",
     "babel-plugin-react-compiler": "^0.0.0-experimental-c23de8f-20240529",
     "gh-pages": "^6.3.0",
-    "vercel": "^48.9.2",
     "vite": "^5.2.0"
   }
 }
