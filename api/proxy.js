@@ -41,21 +41,62 @@ module.exports = async function handler(req, res) {
   console.log(`Proxying to: ${targetUrl}`);
 
   try {
-    // Intentar usar un servicio de proxy CORS público como fallback
-    // Primero intentamos directamente con headers mejorados
-    const response = await fetch(targetUrl, {
+    // Intentar múltiples estrategias para evitar Cloudflare
+    // Estrategia 1: Petición directa con headers optimizados
+    let response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'es-US,es;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'es-US,es;q=0.9,en-US;q=0.8,en;q=0.7,es-419;q=0.6,pt;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
         'Referer': 'https://www.pokemon-zone.com/',
         'Origin': 'https://www.pokemon-zone.com',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
+        'Cache-Control': 'max-age=0',
+        'Sec-CH-UA': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+        'Sec-CH-UA-Mobile': '?0',
+        'Sec-CH-UA-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        'Connection': 'keep-alive',
+        'DNT': '1',
       },
+      redirect: 'follow',
     });
+
+    // Si recibimos 403, intentar con un servicio de proxy CORS público
+    if (response.status === 403) {
+      console.log('Primera petición bloqueada, intentando con proxy CORS alternativo...');
+      
+      // Intentar con un servicio de proxy CORS público (AllOrigins)
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+      const proxyResponse = await fetch(proxyUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (proxyResponse.ok) {
+        const proxyData = await proxyResponse.json();
+        const content = proxyData.contents;
+        
+        try {
+          const data = JSON.parse(content);
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.setHeader('Content-Type', 'application/json');
+          return res.status(200).json(data);
+        } catch (e) {
+          // Si el contenido no es JSON válido, continuar con el error original
+          console.log('Proxy CORS no devolvió JSON válido');
+        }
+      }
+    }
 
     const statusCode = response.status;
     
