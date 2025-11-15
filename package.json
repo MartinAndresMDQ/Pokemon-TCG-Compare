@@ -10,6 +10,7 @@
     "puppeteer-core": "^24.30.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer-real-browser": "^1.4.4",
     "react": "^19.0.0-experimental-c23de8f-20240529",
     "react-dom": "^19.0.0-experimental-c23de8f-20240529",
     "typescript": "^5.2.2",

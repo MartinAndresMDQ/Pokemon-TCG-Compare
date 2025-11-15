@@ -4,8 +4,8 @@
   "outputDirectory": "dist",
   "functions": {
     "api/proxy.js": {
-      "maxDuration": 10,
-      "memory": 512
+      "maxDuration": 30,
+      "memory": 2048
     }
   },
   "rewrites": [

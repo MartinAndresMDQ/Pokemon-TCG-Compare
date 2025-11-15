@@ -1,6 +1,8 @@
 // Función serverless de Vercel para hacer de proxy y evitar CORS
-// Nota: Puppeteer no funciona bien en Vercel debido a dependencias del sistema
-// Usamos fetch directo con headers que simulan un navegador
+// Intentamos usar Puppeteer con @sparticuz/chromium para evitar bloqueos de Cloudflare
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
+
 module.exports = async function handler(req, res) {
   // Manejar preflight CORS
   if (req.method === 'OPTIONS') {
@@ -40,9 +42,121 @@ module.exports = async function handler(req, res) {
 
   console.log(`Proxying to: ${targetUrl}`);
 
+  let browser = null;
+  
   try {
-    // Intentar múltiples estrategias para evitar Cloudflare
-    // Estrategia 1: Petición directa con headers optimizados
+    // Estrategia 1: Intentar con Puppeteer usando @sparticuz/chromium
+    // Esto debería funcionar mejor que fetch directo para evitar Cloudflare
+    try {
+      console.log('Intentando con Puppeteer...');
+      const executablePath = await chromium.executablePath();
+      
+      browser = await puppeteer.launch({
+        args: [
+          ...chromium.args,
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--disable-setuid-sandbox',
+          '--no-first-run',
+          '--no-sandbox',
+          '--no-zygote',
+          '--single-process',
+        ],
+        defaultViewport: chromium.defaultViewport,
+        executablePath: executablePath,
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+      });
+
+      const page = await browser.newPage();
+      
+      // Configurar para evitar detección
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36');
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'es-US,es;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      });
+
+      // Variable para almacenar la respuesta JSON
+      let responseData = null;
+      
+      // Interceptar respuestas
+      page.on('response', async (response) => {
+        if (response.url() === targetUrl && response.status() === 200) {
+          try {
+            const contentType = response.headers()['content-type'] || '';
+            if (contentType.includes('application/json')) {
+              responseData = await response.json();
+            }
+          } catch (e) {
+            console.log('Error al parsear JSON:', e.message);
+          }
+        }
+      });
+
+      // Realizar la petición
+      const response = await page.goto(targetUrl, {
+        waitUntil: 'networkidle0',
+        timeout: 30000
+      });
+
+      const statusCode = response.status();
+      
+      if (statusCode === 200) {
+        // Esperar un poco para que Cloudflare complete cualquier challenge
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        let content;
+        
+        if (responseData) {
+          content = JSON.stringify(responseData);
+        } else {
+          try {
+            content = await response.text();
+            try {
+              const parsed = JSON.parse(content);
+              content = JSON.stringify(parsed);
+            } catch (e) {
+              const bodyText = await page.evaluate(() => document.body.innerText);
+              try {
+                const parsed = JSON.parse(bodyText);
+                content = JSON.stringify(parsed);
+              } catch (e2) {
+                throw new Error('Response is not valid JSON');
+              }
+            }
+          } catch (e) {
+            throw new Error(`Error al obtener contenido: ${e.message}`);
+          }
+        }
+
+        await page.close();
+        await browser.close();
+        browser = null;
+
+        // Enviar respuesta con CORS
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(200).send(content);
+      }
+      
+      await page.close();
+      await browser.close();
+      browser = null;
+      
+      // Si Puppeteer falla, continuar con fetch
+      console.log('Puppeteer devolvió status:', statusCode);
+    } catch (puppeteerError) {
+      console.log('Error con Puppeteer, intentando con fetch:', puppeteerError.message);
+      if (browser) {
+        await browser.close();
+        browser = null;
+      }
+    }
+
+    // Estrategia 2: Petición directa con headers optimizados
     let response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
@@ -145,6 +259,9 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('Error en proxy:', error);
+    if (browser) {
+      await browser.close();
+    }
     
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({ 
