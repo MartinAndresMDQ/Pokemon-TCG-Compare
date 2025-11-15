@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/Pokemon-TCG-Compare/', // Reemplaza con el nombre de tu repositorio
+  base: process.env.NODE_ENV === 'production' && process.env.VERCEL 
+    ? '/' 
+    : '/Pokemon-TCG-Compare/', // En Vercel no necesitamos el base path
   plugins: [react()],
   build: {
     outDir: 'dist', // Directorio de salida para el build
