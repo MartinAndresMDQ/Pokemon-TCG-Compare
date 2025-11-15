@@ -46,16 +46,24 @@ module.exports = async function handler(req, res) {
   
   try {
     // Inicializar el navegador con Chromium optimizado para Vercel
+    // Configurar Chromium para el entorno serverless
+    const executablePath = await chromium.executablePath();
+    
     browser = await puppeteer.launch({
       args: [
         ...chromium.args,
-        '--hide-scrollbars',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--disable-setuid-sandbox',
+        '--no-first-run',
+        '--no-sandbox',
+        '--no-zygote',
+        '--single-process',
       ],
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: executablePath,
       headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
 
     const page = await browser.newPage();
