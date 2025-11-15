@@ -70,7 +70,8 @@ export default {
 
           // Interceptar respuestas
           page.on('response', async (response) => {
-            if (response.url() === targetUrl && response.status() === 200) {
+            const responseStatus = typeof response.status === 'function' ? response.status() : response.status;
+            if (response.url() === targetUrl && responseStatus === 200) {
               try {
                 const contentType = response.headers()['content-type'] || '';
                 if (contentType.includes('application/json')) {
@@ -88,6 +89,7 @@ export default {
             timeout: 30000,
           });
 
+          // En Puppeteer, response.status() es un método
           const statusCode = response.status();
 
           if (statusCode === 200) {
@@ -171,7 +173,8 @@ export default {
           redirect: 'follow',
         });
 
-        const statusCode = response.status();
+        // En fetch, response.status es una propiedad, no un método
+        const statusCode = response.status;
 
         if (statusCode === 200) {
           const contentType = response.headers.get('content-type') || '';
