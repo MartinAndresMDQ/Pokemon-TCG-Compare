@@ -5,6 +5,9 @@
   "homepage": "https://martinandresmdq.github.io/pokemon-tcg-comparator",
   "dependencies": {
     "@tanstack/react-query": "^5.40.1",
+    "puppeteer": "^24.30.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.0.0-experimental-c23de8f-20240529",
     "react-dom": "^19.0.0-experimental-c23de8f-20240529",
     "typescript": "^5.2.2",
@@ -13,6 +16,8 @@
   "scripts": {
     "dev": "vite",
     "start": "vite",
+    "proxy": "node proxy-server.js",
+    "dev:with-proxy": "concurrently \"npm run proxy\" \"npm run dev\"",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "build": "vite build",
@@ -24,6 +29,7 @@
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
     "babel-plugin-react-compiler": "^0.0.0-experimental-c23de8f-20240529",
+    "concurrently": "^9.2.1",
     "gh-pages": "^6.3.0",
     "vite": "^5.2.0"
   }
