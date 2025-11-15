@@ -3,9 +3,6 @@
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 
-// Configurar Chromium para Vercel
-chromium.setGraphicsMode(false);
-
 module.exports = async function handler(req, res) {
   // Manejar preflight CORS
   if (req.method === 'OPTIONS') {
@@ -50,7 +47,12 @@ module.exports = async function handler(req, res) {
   try {
     // Inicializar el navegador con Chromium optimizado para Vercel
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        '--hide-scrollbars',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process',
+      ],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
