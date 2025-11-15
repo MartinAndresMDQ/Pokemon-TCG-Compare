@@ -1,0 +1,21 @@
+# Headers para Cloudflare Pages
+# Configurar MIME types correctos para archivos JavaScript
+
+/*.js
+  Content-Type: application/javascript; charset=utf-8
+
+/*.mjs
+  Content-Type: application/javascript; charset=utf-8
+
+/*.jsx
+  Content-Type: application/javascript; charset=utf-8
+
+/*.css
+  Content-Type: text/css; charset=utf-8
+
+/*.json
+  Content-Type: application/json; charset=utf-8
+
+/*.html
+  Content-Type: text/html; charset=utf-8
+
