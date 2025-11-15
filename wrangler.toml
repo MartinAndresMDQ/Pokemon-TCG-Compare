@@ -1,6 +1,7 @@
 name = "pokemon-tcg-proxy"
 main = "src/worker.js"
 compatibility_date = "2024-11-15"
+compatibility_flags = ["nodejs_compat"]
 
 # Browser Binding para Puppeteer (configúralo en el dashboard de Cloudflare)
 # Ve a Workers & Pages → Settings → Bindings → Add Browser Binding

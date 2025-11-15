@@ -5,9 +5,7 @@ const getApiBaseUrl = () => {
     return 'http://localhost:3001/api';
   }
   // En producción, usar el Cloudflare Worker
-  // Actualiza esta URL con la URL de tu worker después del deploy
-  // Ejemplo: https://pokemon-tcg-proxy.your-subdomain.workers.dev
-  return 'https://pokemon-tcg-proxy.your-subdomain.workers.dev';
+  return 'https://pokemon-tcg-proxy.martinandres987.workers.dev';
 };
 
 // Headers básicos - el servidor proxy maneja los headers complejos
@@ -22,11 +20,11 @@ const getHeaders = () => ({
  */
 export const searchCards = async (query) => {
   const baseUrl = getApiBaseUrl();
-  // En producción, usar la ruta directa para que el rewrite funcione: /api/cards/search?q=...
   // En desarrollo, usar la ruta completa: /api/cards/search/?q=...
+  // En producción (Cloudflare Worker), usar el parámetro path: ?path=cards/search&q=...
   const url = import.meta.env.DEV 
     ? `${baseUrl}/cards/search/?q=${query}`
-    : `${baseUrl}/cards/search?q=${query}`;
+    : `${baseUrl}?path=cards/search&q=${query}`;
     
   const response = await fetch(url, {
     method: 'GET',
@@ -47,11 +45,11 @@ export const searchCards = async (query) => {
  */
 export const getPlayer = async (playerId) => {
   const baseUrl = getApiBaseUrl();
-  // En producción, usar la ruta directa para que el rewrite funcione: /api/players/ID
   // En desarrollo, usar la ruta completa: /api/players/ID/
+  // En producción (Cloudflare Worker), usar el parámetro path: ?path=players/ID
   const url = import.meta.env.DEV
     ? `${baseUrl}/players/${playerId}/`
-    : `${baseUrl}/players/${playerId}`;
+    : `${baseUrl}?path=players/${playerId}`;
     
   const response = await fetch(url, {
     method: 'GET',
