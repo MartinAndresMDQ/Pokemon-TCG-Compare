@@ -5,7 +5,7 @@ import { searchCards, getPlayer } from './api.js'; // Importamos desde nuestro m
 
 function App() {
   const [player1Id, setPlayer1Id] = useState("3415023931342371"); // ID de ejemplo
-  const [player2Id, setPlayer2Id] = useState("ID_JUGADOR_2"); // ID de ejemplo
+  const [player2Id, setPlayer2Id] = useState("0655866866414811"); // ID de ejemplo
 
   const [masterCardList, setMasterCardList] = useState(null);
   const [tradesToShow, setTradesToShow] = useState(null);
@@ -23,7 +23,7 @@ function App() {
         // Usamos la función de nuestra API. 
         // Un query vacío podría traer una lista general o necesitar un parámetro.
         // Usaremos 'sv06' como ejemplo de una serie moderna. ¡Puedes cambiarlo!
-        const apiData = await searchCards('sv06'); 
+        const apiData = await searchCards(); 
         
         const cardMap = {};
         apiData.data.results.forEach(card => {

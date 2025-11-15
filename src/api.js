@@ -23,8 +23,8 @@ export const searchCards = async (query) => {
   // En desarrollo, usar la ruta completa: /api/cards/search/?q=...
   // En producción (Cloudflare Worker), usar el parámetro path: ?path=cards/search&q=...
   const url = import.meta.env.DEV 
-    ? `${baseUrl}/cards/search/?q=${query}`
-    : `${baseUrl}?path=cards/search&q=${query}`;
+    ? `${baseUrl}/cards/search/`
+    : `${baseUrl}?path=cards/search`;
     
   const response = await fetch(url, {
     method: 'GET',
