@@ -4,8 +4,10 @@
   "private": true,
   "homepage": "https://martinandresmdq.github.io/pokemon-tcg-comparator",
   "dependencies": {
+    "@sparticuz/chromium": "^131.0.1",
     "@tanstack/react-query": "^5.40.1",
     "puppeteer": "^24.30.0",
+    "puppeteer-core": "^24.30.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.0.0-experimental-c23de8f-20240529",

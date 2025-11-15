@@ -1,4 +1,11 @@
 // Función serverless de Vercel para hacer de proxy y evitar CORS
+// Usa Puppeteer con Chromium optimizado para Vercel para evitar bloqueos de Cloudflare
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
+
+// Configurar Chromium para Vercel
+chromium.setGraphicsMode(false);
+
 module.exports = async function handler(req, res) {
   // Manejar preflight CORS
   if (req.method === 'OPTIONS') {
@@ -14,8 +21,6 @@ module.exports = async function handler(req, res) {
   }
 
   // Obtener la ruta de la query string
-  // La URL viene como: /api/proxy?path=cards/search&q=sv06
-  // O también puede venir como: /api/cards/search?q=sv06 (con rewrite)
   let path = req.query.path;
   let queryParams = { ...req.query };
   delete queryParams.path;
@@ -40,60 +45,102 @@ module.exports = async function handler(req, res) {
 
   console.log(`Proxying to: ${targetUrl}`);
 
+  let browser = null;
+  
   try {
-    // Realizar la petición con headers que simulan un navegador
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Language': 'es-US,es;q=0.9,en-US;q=0.8,en;q=0.7,es-419;q=0.6,pt;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br, zstd',
-        'Referer': 'https://www.pokemon-zone.com/',
-        'Origin': 'https://www.pokemon-zone.com',
-        'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'none',
-        'sec-fetch-user': '?1',
-        'upgrade-insecure-requests': '1',
-      },
+    // Inicializar el navegador con Chromium optimizado para Vercel
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
 
-    const statusCode = response.status;
+    const page = await browser.newPage();
     
-    if (statusCode === 200) {
-      const contentType = response.headers.get('content-type') || '';
-      let data;
-      
-      if (contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
+    // Configurar headers y user agent
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36');
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'es-US,es;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    });
+
+    // Variable para almacenar la respuesta JSON
+    let responseData = null;
+    
+    // Interceptar respuestas para capturar el JSON
+    page.on('response', async (response) => {
+      if (response.url() === targetUrl && response.status() === 200) {
         try {
-          data = JSON.parse(text);
+          const contentType = response.headers()['content-type'] || '';
+          if (contentType.includes('application/json')) {
+            responseData = await response.json();
+          }
         } catch (e) {
-          throw new Error('Response is not valid JSON');
+          console.log('Error al parsear JSON de la respuesta:', e.message);
         }
       }
+    });
+
+    // Realizar la petición
+    const response = await page.goto(targetUrl, {
+      waitUntil: 'networkidle0',
+      timeout: 30000
+    });
+
+    const statusCode = response.status();
+    
+    if (statusCode === 200) {
+      // Esperar un poco para que Cloudflare complete cualquier challenge
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      let content;
+      
+      if (responseData) {
+        content = JSON.stringify(responseData);
+      } else {
+        try {
+          content = await response.text();
+          // Intentar parsear como JSON
+          try {
+            const parsed = JSON.parse(content);
+            content = JSON.stringify(parsed);
+          } catch (e) {
+            // Si no es JSON, intentar obtener del body
+            const bodyText = await page.evaluate(() => document.body.innerText);
+            try {
+              const parsed = JSON.parse(bodyText);
+              content = JSON.stringify(parsed);
+            } catch (e2) {
+              throw new Error('Response is not valid JSON');
+            }
+          }
+        } catch (e) {
+          throw new Error(`Error al obtener contenido: ${e.message}`);
+        }
+      }
+
+      await page.close();
+      await browser.close();
 
       // Enviar respuesta con CORS
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       res.setHeader('Content-Type', 'application/json');
-      res.status(200).json(data);
+      res.status(200).send(content);
       
     } else {
-      const errorText = await response.text();
-      console.error(`API returned ${statusCode}:`, errorText);
+      await page.close();
+      await browser.close();
       throw new Error(`API returned ${statusCode}`);
     }
 
   } catch (error) {
     console.error('Error en proxy:', error);
+    if (browser) {
+      await browser.close();
+    }
     
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({ 
