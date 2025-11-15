@@ -1,8 +1,6 @@
 // Función serverless de Vercel para hacer de proxy y evitar CORS
-// Usa Puppeteer con Chromium optimizado para Vercel para evitar bloqueos de Cloudflare
-const chromium = require('@sparticuz/chromium');
-const puppeteer = require('puppeteer-core');
-
+// Nota: Puppeteer no funciona bien en Vercel debido a dependencias del sistema
+// Usamos fetch directo con headers que simulan un navegador
 module.exports = async function handler(req, res) {
   // Manejar preflight CORS
   if (req.method === 'OPTIONS') {
@@ -42,115 +40,70 @@ module.exports = async function handler(req, res) {
 
   console.log(`Proxying to: ${targetUrl}`);
 
-  let browser = null;
-  
   try {
-    // Inicializar el navegador con Chromium optimizado para Vercel
-    // Configurar Chromium para el entorno serverless
-    const executablePath = await chromium.executablePath();
-    
-    browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-        '--disable-setuid-sandbox',
-        '--no-first-run',
-        '--no-sandbox',
-        '--no-zygote',
-        '--single-process',
-      ],
-      defaultViewport: chromium.defaultViewport,
-      executablePath: executablePath,
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true,
+    // Intentar usar un servicio de proxy CORS público como fallback
+    // Primero intentamos directamente con headers mejorados
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'es-US,es;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://www.pokemon-zone.com/',
+        'Origin': 'https://www.pokemon-zone.com',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
     });
 
-    const page = await browser.newPage();
-    
-    // Configurar headers y user agent
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36');
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'es-US,es;q=0.9,en-US;q=0.8,en;q=0.7',
-      'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    });
-
-    // Variable para almacenar la respuesta JSON
-    let responseData = null;
-    
-    // Interceptar respuestas para capturar el JSON
-    page.on('response', async (response) => {
-      if (response.url() === targetUrl && response.status() === 200) {
-        try {
-          const contentType = response.headers()['content-type'] || '';
-          if (contentType.includes('application/json')) {
-            responseData = await response.json();
-          }
-        } catch (e) {
-          console.log('Error al parsear JSON de la respuesta:', e.message);
-        }
-      }
-    });
-
-    // Realizar la petición
-    const response = await page.goto(targetUrl, {
-      waitUntil: 'networkidle0',
-      timeout: 30000
-    });
-
-    const statusCode = response.status();
+    const statusCode = response.status;
     
     if (statusCode === 200) {
-      // Esperar un poco para que Cloudflare complete cualquier challenge
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const contentType = response.headers.get('content-type') || '';
+      let data;
       
-      let content;
-      
-      if (responseData) {
-        content = JSON.stringify(responseData);
+      if (contentType.includes('application/json')) {
+        data = await response.json();
       } else {
+        const text = await response.text();
         try {
-          content = await response.text();
-          // Intentar parsear como JSON
-          try {
-            const parsed = JSON.parse(content);
-            content = JSON.stringify(parsed);
-          } catch (e) {
-            // Si no es JSON, intentar obtener del body
-            const bodyText = await page.evaluate(() => document.body.innerText);
-            try {
-              const parsed = JSON.parse(bodyText);
-              content = JSON.stringify(parsed);
-            } catch (e2) {
-              throw new Error('Response is not valid JSON');
-            }
-          }
+          data = JSON.parse(text);
         } catch (e) {
-          throw new Error(`Error al obtener contenido: ${e.message}`);
+          // Si Cloudflare devuelve HTML (challenge), devolver error informativo
+          if (text.includes('Just a moment') || text.includes('challenge')) {
+            throw new Error('Cloudflare está bloqueando la petición. Por favor, usa los archivos locales o contacta al administrador.');
+          }
+          throw new Error('Response is not valid JSON');
         }
       }
-
-      await page.close();
-      await browser.close();
 
       // Enviar respuesta con CORS
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       res.setHeader('Content-Type', 'application/json');
-      res.status(200).send(content);
+      res.status(200).json(data);
       
     } else {
-      await page.close();
-      await browser.close();
-      throw new Error(`API returned ${statusCode}`);
+      const errorText = await response.text();
+      console.error(`API returned ${statusCode}:`, errorText.substring(0, 200));
+      
+      // Si es un 403, es probablemente Cloudflare
+      if (statusCode === 403) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.status(403).json({ 
+          error: 'Cloudflare bloqueo', 
+          message: 'El servidor está bloqueando las peticiones automatizadas. Por favor, usa los archivos locales o contacta al administrador.',
+          statusCode: 403
+        });
+      } else {
+        throw new Error(`API returned ${statusCode}`);
+      }
     }
 
   } catch (error) {
     console.error('Error en proxy:', error);
-    if (browser) {
-      await browser.close();
-    }
     
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({ 
