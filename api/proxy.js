@@ -1,7 +1,11 @@
 // Función serverless de Vercel para hacer de proxy y evitar CORS
 // Intentamos usar Puppeteer con @sparticuz/chromium para evitar bloqueos de Cloudflare
+// Si Puppeteer falla, intentamos múltiples servicios de proxy CORS
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
+
+// Para usar ScraperAPI (servicio de pago con bypass de Cloudflare), configura tu API key:
+// const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY;
 
 module.exports = async function handler(req, res) {
   // Manejar preflight CORS
@@ -181,35 +185,77 @@ module.exports = async function handler(req, res) {
       redirect: 'follow',
     });
 
-    // Si recibimos 403, intentar con un servicio de proxy CORS público
+    // Si recibimos 403, intentar con múltiples servicios de proxy CORS
     if (response.status === 403) {
-      console.log('Primera petición bloqueada, intentando con proxy CORS alternativo...');
+      console.log('Primera petición bloqueada, intentando con proxies CORS alternativos...');
       
-      // Intentar con un servicio de proxy CORS público (AllOrigins)
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-      const proxyResponse = await fetch(proxyUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
+      // Intentar con múltiples servicios de proxy CORS
+      const proxyServices = [];
       
-      if (proxyResponse.ok) {
-        const proxyData = await proxyResponse.json();
-        const content = proxyData.contents;
-        
+      // Si tienes ScraperAPI configurado, usarlo primero (tiene bypass de Cloudflare)
+      if (process.env.SCRAPER_API_KEY) {
+        proxyServices.push(
+          `http://api.scraperapi.com?api_key=${process.env.SCRAPER_API_KEY}&url=${encodeURIComponent(targetUrl)}&render=false`
+        );
+      }
+      
+      // Agregar servicios de proxy CORS públicos
+      proxyServices.push(
+        // AllOrigins
+        `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        // CORS Proxy
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+        // CORS Anywhere alternativo
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
+      );
+      
+      for (const proxyUrl of proxyServices) {
         try {
-          const data = JSON.parse(content);
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-          res.setHeader('Content-Type', 'application/json');
-          return res.status(200).json(data);
-        } catch (e) {
-          // Si el contenido no es JSON válido, continuar con el error original
-          console.log('Proxy CORS no devolvió JSON válido');
+          console.log(`Intentando con proxy: ${proxyUrl.substring(0, 50)}...`);
+          const proxyResponse = await fetch(proxyUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+            signal: AbortSignal.timeout(10000), // Timeout de 10 segundos
+          });
+          
+          if (proxyResponse.ok) {
+            let content;
+            const contentType = proxyResponse.headers.get('content-type') || '';
+            
+            if (contentType.includes('application/json')) {
+              const proxyData = await proxyResponse.json();
+              // AllOrigins devuelve { contents: "..." }
+              if (proxyData.contents) {
+                content = proxyData.contents;
+              } else {
+                content = JSON.stringify(proxyData);
+              }
+            } else {
+              content = await proxyResponse.text();
+            }
+            
+            try {
+              const data = typeof content === 'string' ? JSON.parse(content) : content;
+              console.log('✅ Proxy CORS funcionó!');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+              res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+              res.setHeader('Content-Type', 'application/json');
+              return res.status(200).json(data);
+            } catch (e) {
+              console.log(`Proxy no devolvió JSON válido: ${e.message}`);
+              continue; // Intentar siguiente proxy
+            }
+          }
+        } catch (proxyError) {
+          console.log(`Error con proxy: ${proxyError.message}`);
+          continue; // Intentar siguiente proxy
         }
       }
+      
+      console.log('Todos los proxies CORS fallaron');
     }
 
     const statusCode = response.status;

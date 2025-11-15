@@ -1,19 +1,13 @@
 // En desarrollo, usamos el servidor proxy local (http://localhost:3001)
-// En producción, usamos la función serverless de Vercel
+// En producción, usamos el Cloudflare Worker
 const getApiBaseUrl = () => {
   if (import.meta.env.DEV) {
     return 'http://localhost:3001/api';
   }
-  // En producción, usar la función serverless de Vercel
-  // Si estás en Vercel, usar la ruta relativa
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname.includes('vercel.app') || hostname === 'localhost') {
-      return '/api';
-    }
-  }
-  // Para otros hosts, usar la URL completa de Vercel (actualiza esto con tu URL real después del deploy)
-  return 'https://pokemon-tcg-compare.vercel.app/api';
+  // En producción, usar el Cloudflare Worker
+  // Actualiza esta URL con la URL de tu worker después del deploy
+  // Ejemplo: https://pokemon-tcg-proxy.your-subdomain.workers.dev
+  return 'https://pokemon-tcg-proxy.your-subdomain.workers.dev';
 };
 
 // Headers básicos - el servidor proxy maneja los headers complejos
